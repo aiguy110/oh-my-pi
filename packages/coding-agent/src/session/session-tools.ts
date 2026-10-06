@@ -1252,7 +1252,7 @@ export class SessionTools {
 						// remains per-call, even after the client selects Always allow.
 						cacheable = !resolved.override;
 					}
-					const permissionIntent = getPermissionIntent(target.name, args);
+					const permissionIntent = getPermissionIntent(target.name, args, this.#host.sessionManager.getCwd());
 					if (!permissionIntent) {
 						return await target.execute(toolCallId, args as never, signal, onUpdate, ctx as never);
 					}
