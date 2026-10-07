@@ -2544,17 +2544,22 @@ export class SessionTools {
 	/**
 	 * Rebuilds the stable base prompt for the current tools and model.
 	 * `commitIf` lets asynchronous producers discard a stale rebuild atomically
-	 * after its inputs have been superseded.
+	 * after its inputs have been superseded. `absorbHeldRoster` renders the live
+	 * roster even while a frozen roster change is held, for a caller that knows
+	 * no provider turn has been bound to the held prompt yet.
 	 */
-	refreshBaseSystemPrompt(commitIf?: () => boolean): Promise<void> {
+	refreshBaseSystemPrompt(commitIf?: () => boolean, options?: { absorbHeldRoster?: boolean }): Promise<void> {
 		return this.runToolRegistryMutation(async () => {
-			const prepared = await this.#prepareBaseSystemPrompt();
+			const prepared = await this.#prepareBaseSystemPrompt(undefined, options?.absorbHeldRoster);
 			if (commitIf && !commitIf()) return;
 			prepared?.commit?.();
 		});
 	}
 
-	async #prepareBaseSystemPrompt(isCurrent?: () => boolean): Promise<SystemPromptPreparation | undefined> {
+	async #prepareBaseSystemPrompt(
+		isCurrent?: () => boolean,
+		absorbHeldRoster = false,
+	): Promise<SystemPromptPreparation | undefined> {
 		if (this.#host.isDisposed() || !this.#rebuildSystemPrompt || isCurrent?.() === false) return;
 		// Local alias: closures below cannot observe the field narrowing.
 		const rebuildSystemPrompt = this.#rebuildSystemPrompt;
@@ -2562,7 +2567,9 @@ export class SessionTools {
 		this.#setActiveToolNames?.(activeToolNames);
 		const previousBaseSystemPrompt = this.#baseSystemPrompt;
 		const heldRoster =
-			this.#promptRosterHeld && this.#implicitRebuildBinding() !== "free" ? this.#basePromptRoster : undefined;
+			!absorbHeldRoster && this.#promptRosterHeld && this.#implicitRebuildBinding() !== "free"
+				? this.#basePromptRoster
+				: undefined;
 		if (heldRoster) {
 			const kept = await this.#prepareHeldRosterPrompt(heldRoster, rebuildSystemPrompt, isCurrent);
 			if (kept) return kept;

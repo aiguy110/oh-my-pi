@@ -7737,8 +7737,8 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 	}
 
 	/** Rebuilds the stable base prompt, optionally discarding a stale asynchronous rebuild. */
-	refreshBaseSystemPrompt(commitIf?: () => boolean): Promise<void> {
-		return this.#tools.refreshBaseSystemPrompt(commitIf);
+	refreshBaseSystemPrompt(commitIf?: () => boolean, options?: { absorbHeldRoster?: boolean }): Promise<void> {
+		return this.#tools.refreshBaseSystemPrompt(commitIf, options);
 	}
 
 	/** Replaces connected MCP tools, enabling new names without changing existing selections. */
