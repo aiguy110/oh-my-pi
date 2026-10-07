@@ -372,6 +372,10 @@ type ManagedSessionRecord = {
 	// clients (Zed) cannot drop them as notifications for an unknown session.
 	// `oauthCapable` marks http/sse servers, the only ones `/mcp reauth` can repair.
 	pendingMcpStartupChunks: Array<{ name: string; message: string; oauthCapable: boolean }>;
+	// A restored prefix-bound base can absorb reconnecting MCP tools until the
+	// first provider turn in this process; afterward signed history keeps it frozen.
+	resumePromptPending: boolean;
+	resumePromptUnsubscribe: (() => void) | undefined;
 	promptTurn: PromptTurnState | undefined;
 	promptQueue: PromptQueueState;
 	// Cancellation carriers for client prompts accepted on the wire whose
@@ -1769,16 +1773,19 @@ export class AcpAgent implements Agent {
 			});
 			record.lifetimeUnsubscribe = unsubscribeEvents;
 			await this.#configureExtensions(record);
-			await this.#configureMcpServers(record, mcpServers);
-			// On resume, MCP refreshes can freeze against restored assistant history.
-			// Rebuild once after connection: this process has not sent its new base yet.
-			if (
+			record.resumePromptPending =
 				mcpServers.length > 0 &&
 				session.model?.thinking?.prefixBinding === true &&
-				session.agent.state.messages.some(message => message.role === "assistant")
-			) {
-				await session.refreshBaseSystemPrompt();
+				session.agent.state.messages.some(message => message.role === "assistant");
+			if (record.resumePromptPending) {
+				record.resumePromptUnsubscribe = session.subscribe(event => {
+					if (event.type !== "turn_start") return;
+					record.resumePromptPending = false;
+					record.resumePromptUnsubscribe?.();
+					record.resumePromptUnsubscribe = undefined;
+				});
 			}
+			await this.#configureMcpServers(record, mcpServers);
 			this.#sessions.set(record.protocolSessionId, record);
 			return record;
 		} catch (error) {
@@ -1799,6 +1806,8 @@ export class AcpAgent implements Agent {
 			mcpManager: undefined,
 			mcpRefreshChain: undefined,
 			pendingMcpStartupChunks: [],
+			resumePromptPending: false,
+			resumePromptUnsubscribe: undefined,
 			promptTurn: undefined,
 			promptQueue: { promise: Promise.resolve(), release: undefined },
 			liveMessageId: undefined,
@@ -3224,6 +3233,7 @@ export class AcpAgent implements Agent {
 			const run = (record.mcpRefreshChain ?? Promise.resolve()).then(async () => {
 				if (record.mcpManager !== manager) return;
 				await record.session.refreshMCPTools(manager.getTools());
+				if (record.resumePromptPending) await record.session.refreshBaseSystemPrompt();
 			});
 			record.mcpRefreshChain = run.catch(error => {
 				logger.warn("ACP MCP tool refresh failed", {
@@ -3233,8 +3243,9 @@ export class AcpAgent implements Agent {
 			return run;
 		};
 		manager.setOnToolsChanged(() => {
-			// Failures are logged once via the stored chain's catch above.
-			enqueueMcpToolsRefresh().catch(() => {});
+			// The manager reports a server connected only after its queued prompt
+			// refresh settles, so an ACP client can wait for it before prompting.
+			return enqueueMcpToolsRefresh().catch(() => {});
 		});
 		const configs: MCPConfigMap = {};
 		const sources: MCPSourceMap = {};
@@ -3329,6 +3340,7 @@ export class AcpAgent implements Agent {
 		record.lifetimeUnsubscribe?.();
 		record.commandMetadataUnsubscribe?.();
 		record.pendingCompactionNotifications = undefined;
+		record.resumePromptUnsubscribe?.();
 		if (record.mcpManager) {
 			try {
 				await record.mcpManager.disconnectAll();
