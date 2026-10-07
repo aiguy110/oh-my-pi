@@ -1537,6 +1537,11 @@ Older entries are archived in [packages/coding-agent/CHANGELOG.md@15ff64bc0f8c](
 
 Older entries are archived in [packages/coding-agent/CHANGELOG.md@529c1841b699](https://github.com/can1357/oh-my-pi/blob/529c1841b6990b8c014aa79bac60ac2d54fbaf83/packages/coding-agent/CHANGELOG.md).
 ## [18.13.2] - 2026-10-27
+### Fixed
+
+- Fixed ACP sessions losing MCP tool routes from the first resumed request on prefix-bound thinking models, preserving the cached prompt prefix ([#14794](https://github.com/can1357/oh-my-pi/issues/14794)).
+
+## [18.8.0] - 2026-10-07
 
 ### Added
 
