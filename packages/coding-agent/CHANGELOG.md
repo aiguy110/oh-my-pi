@@ -144,6 +144,11 @@
 - Fixed GitHub `/review` diff links keeping the snapshot that built the request after the cached diff refreshes in the background, instead of opening whatever file now sits at the same index ([#16310](https://github.com/can1357/oh-my-pi/pull/16310) by [@tkossak](https://github.com/tkossak))
 
 ## [18.13.2] - 2026-10-27
+### Fixed
+
+- Fixed ACP sessions losing MCP tool routes from the first resumed request on prefix-bound thinking models, preserving the cached prompt prefix ([#14794](https://github.com/can1357/oh-my-pi/issues/14794)).
+
+## [18.8.0] - 2026-10-07
 
 ### Added
 
