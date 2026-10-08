@@ -99,13 +99,20 @@ import {
 	TTS_SPEED_MIN,
 	TTS_SPEED_OPTIONS,
 } from "../../tts/models";
+import type { EventBus } from "../../utils/event-bus";
 import { canonicalizeMessage } from "@oh-my-pi/pi-tui/chat/thinking-display";
 import { createAcpClientBridge } from "./acp-client-bridge";
 import {
+	clearLiveAssistantMessageAfterEvent,
 	extractAssistantMessageText,
+	getLiveMessageId,
+	getLiveMessageProgress,
 	mapAgentSessionEventToAcpSessionUpdates,
+	mapIncomingAgentMessage,
 	normalizeReplayToolArguments,
+	prepareLiveAssistantMessage,
 } from "./acp-event-mapper";
+import { AcpSubagentStreams } from "./acp-subagents";
 import { ACP_TERMINAL_AUTH_FLAG } from "./terminal-auth";
 
 import { cfgDisabledExtensions, cfgExtensions } from "../../extensibility/settings";
@@ -417,6 +424,8 @@ type ManagedSessionRecord = {
 	/** Tail of the per-record handler chain; events are handled in arrival order. */
 	promptEventChain: Promise<void> | undefined;
 	extensionUserMessageTasks: Set<Promise<void>>;
+	/** Set when the client advertised the unstable `subagents` capability. */
+	subagents: AcpSubagentStreams | undefined;
 };
 
 type ReplayableMessage = {
@@ -425,6 +434,7 @@ type ReplayableMessage = {
 	errorMessage?: string;
 	toolCallId?: string;
 	toolName?: string;
+	customType?: unknown;
 	details?: unknown;
 	isError?: boolean;
 };
@@ -455,6 +465,7 @@ type MCPSourceMap = {
 type AcpSessionHandle = {
 	session: AgentSession;
 	setToolUIContext: (uiContext: ExtensionUIContext, hasUI: boolean) => void;
+	subagentEventBus?: EventBus;
 };
 
 type CreateAcpSession = (
@@ -462,10 +473,13 @@ type CreateAcpSession = (
 	options?: { interactivePrompts?: boolean },
 ) => Promise<AgentSession | AcpSessionHandle>;
 
-function normalizeCreatedAcpSession(created: AgentSession | AcpSessionHandle): {
+type PreparedAcpSession = {
 	session: AgentSession;
 	setToolUIContext: AcpSessionHandle["setToolUIContext"] | undefined;
-} {
+	subagentEventBus?: EventBus;
+};
+
+function normalizeCreatedAcpSession(created: AgentSession | AcpSessionHandle): PreparedAcpSession {
 	return "session" in created ? created : { session: created, setToolUIContext: undefined };
 }
 
@@ -1127,6 +1141,9 @@ export class AcpAgent implements Agent {
 
 	async loadSession(params: LoadSessionRequest): Promise<LoadSessionResponse> {
 		this.#assertAbsoluteCwd(params.cwd);
+		// A live parent's children keep streaming during the awaits below; the client
+		// need not have kept the earlier tree, so re-establish it first.
+		this.#sessions.get(params.sessionId)?.subagents?.announceAll();
 		const record = await this.#loadManagedSession(params.sessionId, params.cwd, params.mcpServers);
 		await this.#replaySessionHistory(record);
 		const response: LoadSessionResponse = {
@@ -1156,6 +1173,7 @@ export class AcpAgent implements Agent {
 
 	async resumeSession(params: ResumeSessionRequest): Promise<ResumeSessionResponse> {
 		this.#assertAbsoluteCwd(params.cwd);
+		this.#sessions.get(params.sessionId)?.subagents?.announceAll();
 		const record = await this.#resumeManagedSession(params.sessionId, params.cwd, params.mcpServers ?? []);
 		const response: ResumeSessionResponse = {
 			configOptions: this.#buildConfigOptions(record.session),
@@ -1853,18 +1871,19 @@ export class AcpAgent implements Agent {
 	}
 
 	async #createNewSessionRecord(cwd: string, mcpServers: McpServer[]): Promise<ManagedSessionRecord> {
-		const { session, setToolUIContext } = normalizeCreatedAcpSession(
+		const prepared = normalizeCreatedAcpSession(
 			await this.#createSession(path.resolve(cwd), {
 				interactivePrompts: this.#clientCapabilities?.elicitation?.form != null,
 			}),
 		);
+		const { session } = prepared;
 		try {
 			await session.sessionManager.ensureOnDisk();
 		} catch (error) {
 			await this.#disposeStandaloneSession(session);
 			throw error;
 		}
-		return await this.#registerPreparedSession(session, mcpServers, setToolUIContext);
+		return await this.#registerPreparedSession(prepared, mcpServers);
 	}
 
 	async #loadManagedSession(sessionId: string, cwd: string, mcpServers: McpServer[]): Promise<ManagedSessionRecord> {
@@ -1919,11 +1938,12 @@ export class AcpAgent implements Agent {
 
 	async #forkManagedSession(params: ForkSessionRequest): Promise<ManagedSessionRecord> {
 		const sourcePath = await this.#resolveForkSourceSessionPath(params.sessionId);
-		const { session, setToolUIContext } = normalizeCreatedAcpSession(
+		const prepared = normalizeCreatedAcpSession(
 			await this.#createSession(path.resolve(params.cwd), {
 				interactivePrompts: this.#clientCapabilities?.elicitation?.form != null,
 			}),
 		);
+		const { session } = prepared;
 		try {
 			const success = await session.switchSession(sourcePath);
 			if (!success) {
@@ -1937,7 +1957,7 @@ export class AcpAgent implements Agent {
 			await this.#disposeStandaloneSession(session);
 			throw error;
 		}
-		return await this.#registerPreparedSession(session, params.mcpServers ?? [], setToolUIContext);
+		return await this.#registerPreparedSession(prepared, params.mcpServers ?? []);
 	}
 
 	async #openStoredSession(
@@ -1946,11 +1966,12 @@ export class AcpAgent implements Agent {
 		mcpServers: McpServer[],
 		protocolSessionId: string,
 	): Promise<ManagedSessionRecord> {
-		const { session, setToolUIContext } = normalizeCreatedAcpSession(
+		const prepared = normalizeCreatedAcpSession(
 			await this.#createSession(path.resolve(cwd), {
 				interactivePrompts: this.#clientCapabilities?.elicitation?.form != null,
 			}),
 		);
+		const { session } = prepared;
 		try {
 			const success = await session.switchSession(sessionPath);
 			if (!success) {
@@ -1960,18 +1981,20 @@ export class AcpAgent implements Agent {
 			await this.#disposeStandaloneSession(session);
 			throw error;
 		}
-		return await this.#registerPreparedSession(session, mcpServers, setToolUIContext, protocolSessionId);
+		return await this.#registerPreparedSession(prepared, mcpServers, protocolSessionId);
 	}
 
 	async #registerPreparedSession(
-		session: AgentSession,
+		{ session, setToolUIContext, subagentEventBus }: PreparedAcpSession,
 		mcpServers: McpServer[],
-		setToolUIContext: ((uiContext: ExtensionUIContext, hasUI: boolean) => void) | undefined,
 		protocolSessionId = session.sessionId,
 	): Promise<ManagedSessionRecord> {
 		const record = this.#createManagedSessionRecord(session, setToolUIContext, protocolSessionId);
 		// Registered before extensions start: a `session_start` handler can already replace the durable session.
 		session.registerSessionChangeCallback(() => this.#rememberHandleSession(record));
+		if (this.#clientCapabilities?.subagents != null && subagentEventBus) {
+			record.subagents = new AcpSubagentStreams(this.#connection, session, subagentEventBus);
+		}
 		session.setClientBridge({
 			...createAcpClientBridge(this.#connection, record.protocolSessionId, this.#clientCapabilities),
 			get deferAgentInitiatedTurns() {
@@ -2039,6 +2062,7 @@ export class AcpAgent implements Agent {
 			commandMetadataUnsubscribe: undefined,
 			lifetimeUpdatesReady: false,
 			pendingCompactionNotifications: undefined,
+			subagents: undefined,
 		};
 	}
 
@@ -2162,7 +2186,7 @@ export class AcpAgent implements Agent {
 			record.toolArgsById.set(event.toolCallId, event.args);
 		}
 
-		this.#prepareLiveAssistantMessage(record, event);
+		prepareLiveAssistantMessage(record, event);
 		const imageDataCache = new Map<string, string>();
 		const resolveImageDataForAcp = (data: string, mimeType: string | undefined): string => {
 			const key = `${mimeType ?? ""}\u0000${data}`;
@@ -2177,11 +2201,12 @@ export class AcpAgent implements Agent {
 			event.message.role === "assistant" &&
 			event.assistantMessageEvent.type === "error";
 		for (const notification of mapAgentSessionEventToAcpSessionUpdates(event, record.protocolSessionId, {
-			getMessageId: message => this.#getLiveMessageId(record, message),
-			getMessageProgress: message => this.#getLiveMessageProgress(record, message),
+			getMessageId: message => getLiveMessageId(record, message),
+			getMessageProgress: message => getLiveMessageProgress(record, message),
 			getToolArgs: toolCallId => record.toolArgsById.get(toolCallId),
 			cwd: record.session.sessionManager.getCwd(),
 			resolveImageData: resolveImageDataForAcp,
+			sessionMessages: record.subagents,
 		})) {
 			const delivery = this.#connection.sessionUpdate(notification);
 			if (streamedAssistantError) {
@@ -2205,7 +2230,7 @@ export class AcpAgent implements Agent {
 		) {
 			await this.#emitUsageUpdate(record, usageSnapshot);
 		}
-		this.#clearLiveAssistantMessageAfterEvent(record, event);
+		clearLiveAssistantMessageAfterEvent(record, event);
 
 		if (event.type === "agent_end") {
 			await this.#flushMissedFinalAssistantText(record, event);
@@ -2316,51 +2341,6 @@ export class AcpAgent implements Agent {
 		}
 
 		await record.session.waitForIdle();
-	}
-
-	#prepareLiveAssistantMessage(record: ManagedSessionRecord, event: AgentSessionEvent): void {
-		if (
-			(event.type === "message_start" || event.type === "message_update" || event.type === "message_end") &&
-			event.message.role === "assistant" &&
-			(event.type === "message_start" || !record.liveMessageId || !record.liveMessageProgress)
-		) {
-			record.liveMessageId = crypto.randomUUID();
-			record.liveMessageProgress = { textEmitted: false, thoughtEmitted: false };
-		}
-	}
-
-	/**
-	 * Reset live-message tracking once the assistant `message_end` is handled.
-	 * The `agent_end` reset happens inside the `agent_end` branch of
-	 * `#handlePromptEvent` — after `#flushMissedFinalAssistantText` — so a
-	 * `message_end` that arrives during the end-of-turn waits maps against the
-	 * real progress instead of resurrecting a fresh one (which would double-emit
-	 * the final answer).
-	 */
-	#clearLiveAssistantMessageAfterEvent(record: ManagedSessionRecord, event: AgentSessionEvent): void {
-		if (event.type === "message_end" && event.message.role === "assistant") {
-			record.liveMessageId = undefined;
-			record.liveMessageProgress = undefined;
-		}
-	}
-
-	#getLiveMessageId(record: ManagedSessionRecord, message: unknown): string | undefined {
-		if (typeof message !== "object" || message === null) {
-			return undefined;
-		}
-		record.liveMessageId ??= crypto.randomUUID();
-		return record.liveMessageId;
-	}
-
-	#getLiveMessageProgress(
-		record: ManagedSessionRecord,
-		message: unknown,
-	): { textEmitted: boolean; thoughtEmitted: boolean } | undefined {
-		if (typeof message !== "object" || message === null) {
-			return undefined;
-		}
-		record.liveMessageProgress ??= { textEmitted: false, thoughtEmitted: false };
-		return record.liveMessageProgress;
 	}
 
 	#finishPrompt(record: ManagedSessionRecord, response?: PromptResponse, error?: unknown): void {
@@ -2900,6 +2880,8 @@ export class AcpAgent implements Agent {
 				updatedAt: record.session.sessionManager.getHeader()?.timestamp,
 			},
 		});
+		// Current child state belongs after the load/resume response; no-op for a fresh session.
+		record.subagents?.reportStates();
 	}
 
 	async #emitAvailableCommandsUpdate(record: ManagedSessionRecord): Promise<void> {
@@ -3049,6 +3031,7 @@ export class AcpAgent implements Agent {
 				cwd,
 				replayedToolCallIds,
 				replayedToolCallArgs,
+				record.subagents,
 			)) {
 				await this.#connection.sessionUpdate(notification);
 			}
@@ -3061,7 +3044,12 @@ export class AcpAgent implements Agent {
 		cwd: string,
 		replayedToolCallIds: Set<string>,
 		replayedToolCallArgs: Map<string, unknown>,
+		sessionMessages: AcpSubagentStreams | undefined,
 	): SessionNotification[] {
+		// A recorded agent-to-agent message is not the human's: with subagents
+		// negotiated it replays as an inter-session message, like its live view.
+		const incoming = sessionMessages ? mapIncomingAgentMessage(message, sessionId, sessionMessages) : [];
+		if (incoming.length > 0) return incoming;
 		if (message.role === "assistant") {
 			return this.#replayAssistantMessage(sessionId, message, cwd, replayedToolCallIds, replayedToolCallArgs);
 		}
@@ -3563,6 +3551,7 @@ export class AcpAgent implements Agent {
 		record.commandMetadataUnsubscribe?.();
 		record.pendingCompactionNotifications = undefined;
 		record.resumePromptUnsubscribe?.();
+		record.subagents?.dispose();
 		if (record.mcpManager) {
 			try {
 				await record.mcpManager.disconnectAll();
