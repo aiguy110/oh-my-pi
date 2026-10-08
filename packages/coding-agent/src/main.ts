@@ -532,6 +532,7 @@ export async function submitInteractiveInput(
 interface AcpSessionHandle {
 	session: AgentSession;
 	setToolUIContext: (uiContext: ExtensionUIContext, hasUI: boolean) => void;
+	subagentEventBus: EventBus;
 }
 
 type AcpSessionFactory = (cwd: string, options?: { interactivePrompts?: boolean }) => Promise<AcpSessionHandle>;
@@ -657,6 +658,7 @@ export function createAcpSessionFactory(args: AcpSessionFactoryOptions): AcpSess
 		const titleSystemPromptSource = discoverTitleSystemPromptFile(cwd);
 		const titleSystemPrompt = await resolvePromptInput(titleSystemPromptSource, "title system prompt");
 		const eventBus = new EventBus();
+		const subagentEventBus = new EventBus();
 		const trustedExtensions =
 			args.parsedArgs.trustedExtensions && args.parsedArgs.trustedExtensions.length > 0
 				? await loadTrustedSessionExtensions(args.baseOptions, cwd, eventBus)
@@ -684,6 +686,7 @@ export function createAcpSessionFactory(args: AcpSessionFactoryOptions): AcpSess
 			enableMCP: false,
 			titleSystemPrompt,
 			eventBus,
+			subagentEventBus,
 			preloadedExtensions: trustedExtensions,
 		});
 		const runner = nextSession.extensionRunner;
@@ -732,7 +735,7 @@ export function createAcpSessionFactory(args: AcpSessionFactoryOptions): AcpSess
 				error => logger.warn("Scoped model rebuild after discovery failed", { error: String(error) }),
 			);
 		}
-		return { session: nextSession, setToolUIContext };
+		return { session: nextSession, setToolUIContext, subagentEventBus };
 	};
 }
 

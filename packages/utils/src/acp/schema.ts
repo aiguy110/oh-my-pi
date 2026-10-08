@@ -77,7 +77,15 @@ const SessionUpdate = type({
 	.or({ sessionUpdate: "'available_commands_update'", availableCommands: "unknown[]" })
 	.or({ sessionUpdate: "'config_option_update'", configOptions: "unknown[]" })
 	.or({ sessionUpdate: "'session_info_update'", "title?": "string | null | undefined" })
-	.or({ sessionUpdate: "'usage_update'", size: "number", used: "number" });
+	.or({ sessionUpdate: "'usage_update'", size: "number", used: "number" })
+	.or({ sessionUpdate: "'subagent_update'", sessionId: "string" })
+	.or({ sessionUpdate: "'session_message'", messageId: "string", "content?": ContentBlock.array().or("null | undefined") });
+
+/** A subagent update must name a child session, never the parent it is reported on. */
+function subagentNotParent(value: { sessionId: string; update: object }): boolean {
+	const update = value.update as Record<string, unknown>;
+	return update.sessionUpdate !== "subagent_update" || update.sessionId !== value.sessionId;
+}
 
 /** Validator for new-session responses. */
 export const zNewSessionResponse = validator<NewSessionResponse>(IdentifiedSessionResponse, "new session response");
@@ -92,7 +100,9 @@ export const zPromptResponse = validator<PromptResponse>(
 );
 /** Validator for session notifications. */
 export const zSessionNotification = validator<SessionNotification>(
-	type({ sessionId: "string", update: SessionUpdate }).narrow(notArray),
+	type({ sessionId: "string", update: SessionUpdate })
+		.narrow(notArray)
+		.narrow(subagentNotParent),
 	"session notification",
 );
 
