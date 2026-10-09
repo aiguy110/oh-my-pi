@@ -87,7 +87,13 @@ const SessionUpdate = type({
 		// only the discriminator's type is checked.
 		"state?": type({ state: "string" }).or("null | undefined"),
 	})
-	.or({ sessionUpdate: "'session_message'", messageId: "string", "content?": ContentBlock.array().or("null | undefined") });
+	.or({
+		sessionUpdate: "'session_message'",
+		messageId: "string",
+		"senderSessionId?": "string | null | undefined",
+		"recipientSessionId?": "string | null | undefined",
+		"content?": ContentBlock.array().or("null | undefined"),
+	});
 
 /** A subagent update must name a child session, never the parent it is reported on. */
 function subagentNotParent(value: { sessionId: string; update: object }): boolean {
