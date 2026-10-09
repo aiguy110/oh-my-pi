@@ -66,6 +66,13 @@ const ContentBlock = type({ type: "'text'", text: "string" })
 	.or({ type: "'resource_link'", uri: "string", name: "string" })
 	.or({ type: "'resource'", resource: "object" });
 
+const IdleFields = type({
+	"stopReason?": "string | null | undefined",
+	"error?": type({ code: "number", message: "string" }).or("null | undefined"),
+});
+/** Unrecognized state values are reserved for future or `_`-prefixed extension states, so only known fields are checked. */
+const SubagentWorkState = type({ state: "string" }).narrow(value => value.state !== "idle" || IdleFields.allows(value));
+
 const SessionUpdate = type({
 	sessionUpdate: "'agent_message_chunk' | 'agent_thought_chunk' | 'user_message_chunk'",
 	content: ContentBlock,
@@ -83,9 +90,7 @@ const SessionUpdate = type({
 		sessionId: "string",
 		"title?": "string | null | undefined",
 		"description?": "string | null | undefined",
-		// Unrecognized state values are reserved for future or `_`-prefixed extension states, so
-		// only the discriminator's type is checked.
-		"state?": type({ state: "string" }).or("null | undefined"),
+		"state?": SubagentWorkState.or("null | undefined"),
 	})
 	.or({
 		sessionUpdate: "'session_message'",
@@ -114,9 +119,7 @@ export const zPromptResponse = validator<PromptResponse>(
 );
 /** Validator for session notifications. */
 export const zSessionNotification = validator<SessionNotification>(
-	type({ sessionId: "string", update: SessionUpdate })
-		.narrow(notArray)
-		.narrow(subagentNotParent),
+	type({ sessionId: "string", update: SessionUpdate }).narrow(notArray).narrow(subagentNotParent),
 	"session notification",
 );
 
