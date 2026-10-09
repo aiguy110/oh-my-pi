@@ -78,7 +78,15 @@ const SessionUpdate = type({
 	.or({ sessionUpdate: "'config_option_update'", configOptions: "unknown[]" })
 	.or({ sessionUpdate: "'session_info_update'", "title?": "string | null | undefined" })
 	.or({ sessionUpdate: "'usage_update'", size: "number", used: "number" })
-	.or({ sessionUpdate: "'subagent_update'", sessionId: "string" })
+	.or({
+		sessionUpdate: "'subagent_update'",
+		sessionId: "string",
+		"title?": "string | null | undefined",
+		"description?": "string | null | undefined",
+		// Unrecognized state values are reserved for future or `_`-prefixed extension states, so
+		// only the discriminator's type is checked.
+		"state?": type({ state: "string" }).or("null | undefined"),
+	})
 	.or({ sessionUpdate: "'session_message'", messageId: "string", "content?": ContentBlock.array().or("null | undefined") });
 
 /** A subagent update must name a child session, never the parent it is reported on. */
