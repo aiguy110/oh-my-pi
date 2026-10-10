@@ -1851,6 +1851,19 @@ export class AcpAgent implements Agent {
 	}
 
 	#handleLifetimeEvent(record: ManagedSessionRecord, event: AgentSessionEvent): void {
+		if (event.type === "irc_message") {
+			// During an ACP prompt turn the prompt handler maps it; between turns
+			// (e.g. a detached child messaging the root) only this subscription sees it.
+			if (!record.lifetimeUpdatesReady || !record.subagents || isPromptTurnInFlight(record.promptTurn)) return;
+			for (const notification of mapIncomingAgentMessage(
+				event.message,
+				record.session.sessionId,
+				record.subagents,
+			)) {
+				this.#trackLifetimeDelivery(record, event.type, this.#connection.sessionUpdate(notification));
+			}
+			return;
+		}
 		const sessionId = record.protocolSessionId;
 		let notification: AcpCompactionNotification;
 		if (event.type === "auto_compaction_start") {
@@ -2867,6 +2880,7 @@ export class AcpAgent implements Agent {
 				{
 					includeStart: !replayedToolCallIds.has(message.toolCallId),
 					toolArgs: replayedToolCallArgs.get(message.toolCallId),
+					sessionMessages,
 				},
 			);
 		}
@@ -2991,7 +3005,7 @@ export class AcpAgent implements Agent {
 		sessionId: string,
 		cwd: string,
 		message: Required<Pick<ReplayableMessage, "toolCallId" | "toolName">> & ReplayableMessage,
-		options: { includeStart?: boolean; toolArgs?: unknown } = {},
+		options: { includeStart?: boolean; toolArgs?: unknown; sessionMessages?: AcpSubagentStreams } = {},
 	): SessionNotification[] {
 		const args = this.#buildReplayToolArgs(message.details);
 		const startEvent: AgentSessionEvent = {
@@ -3015,6 +3029,8 @@ export class AcpAgent implements Agent {
 			cwd,
 			getToolArgs: toolCallId => (toolCallId === message.toolCallId ? options.toolArgs : undefined),
 			resolveImageData: (data, _mimeType) => resolveImageDataSync(this.#blobs, data),
+			// A recorded `write agent://` replays as its outgoing session message, like its live view.
+			sessionMessages: options.sessionMessages,
 		});
 		if (options.includeStart === false) {
 			return notifications;
