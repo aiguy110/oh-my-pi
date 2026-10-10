@@ -2838,6 +2838,8 @@ export class AcpAgent implements Agent {
 					});
 				});
 			}
+			// Subagent traffic shares the guard: it names this session id too.
+			record.subagents?.start();
 			void this.#emitBootstrapUpdates(sessionId, record);
 		}, ACP_BOOTSTRAP_RACE_GUARD_MS);
 	}
