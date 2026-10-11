@@ -12,7 +12,9 @@ import { InternalUrlRouter } from "../../internal-urls/router";
 import { extractUriScheme, parseInternalUrl } from "../../internal-urls/parse";
 import type { SchemeSpec } from "../../internal-urls/types";
 import type { AgentSessionEvent } from "../../session/agent-session";
+import { recoverConflictUriPrefix } from "../../tools/conflict-detect";
 import { resolveToCwd, splitPathAndSelPreferringLiteralSync } from "../../tools/path-utils";
+import { unwrapHashlineHeaderPath } from "../../tools/hashline-header-path";
 import type { TodoStatus } from "../../tools/details/todo";
 import { canonicalizeMessage } from "../../session/transcript/thinking-display";
 
@@ -152,11 +154,27 @@ interface TextMessageLike {
 
 const ACP_TEXT_LIMIT = 4_000;
 
+/**
+ * Target `write` dispatches for `path`: like `WriteTool.execute`, drop a hashline
+ * `[path#TAG]` wrapper, a whole-file read selector (`:raw`) and a `<file>:conflict://N` prefix.
+ */
+function normalizeWritePath(path: string): string {
+	const unwrapped = unwrapHashlineHeaderPath(path);
+	let peeled = unwrapped;
+	try {
+		peeled = InternalUrlRouter.instance().peelWriteSelector(unwrapped, "write");
+	} catch {
+		// A line-range selector fails the write itself; classify the call by its unpeeled target.
+	}
+	return recoverConflictUriPrefix(peeled).path;
+}
+
 /** Declared spec of the registered scheme a `write` call targets; undefined for file paths and other tools. */
 function writeTargetSpec(toolName: string, args: unknown): SchemeSpec | undefined {
 	if (toolName !== "write") return undefined;
-	const path = extractStringProperty<PathContainer>(args, "path");
-	if (!path) return undefined;
+	const rawPath = extractStringProperty<PathContainer>(args, "path");
+	if (!rawPath) return undefined;
+	const path = normalizeWritePath(rawPath);
 	const router = InternalUrlRouter.instance();
 	const scheme = extractUriScheme(path);
 	return scheme && router.canHandle(path) ? router.spec(scheme) : undefined;
@@ -313,7 +331,7 @@ function mapOutgoingAgentMessage(
 	const path = extractStringProperty<PathContainer>(args, "path");
 	const text = extractStringProperty<{ content?: unknown }>(args, "content");
 	if (!path || !text) return [];
-	const to = parseInternalUrl(path).rawHost;
+	const to = parseInternalUrl(normalizeWritePath(path)).rawHost;
 	// `agent://all` is a broadcast: there is no single recipient session to name.
 	const recipientSessionId = to && to !== "all" ? sessionMessages.resolveAgentSessionId(to) : undefined;
 	return [
