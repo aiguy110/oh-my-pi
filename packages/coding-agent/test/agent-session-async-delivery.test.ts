@@ -224,6 +224,10 @@ describe("AgentSession owner-routed async delivery", () => {
 			});
 			await settleOwnedJobs(session, manager);
 			expect(mock.calls).toHaveLength(2);
+			// Prompt updates are delivered in arrival order, so the follow-up's
+			// chunk waits behind the held end-of-turn update.
+			releaseOutput.resolve();
+			expect((await firstPrompt).stopReason).toBe("end_turn");
 			expect(
 				updates.some(
 					notification =>
@@ -232,8 +236,6 @@ describe("AgentSession owner-routed async delivery", () => {
 						notification.update.content.text.includes("Open-prompt follow-up"),
 				),
 			).toBe(true);
-			releaseOutput.resolve();
-			expect((await firstPrompt).stopReason).toBe("end_turn");
 
 			manager.register("task", "late result", async () => "LATE_ACP_RESULT", {
 				id: "late-acp-result",

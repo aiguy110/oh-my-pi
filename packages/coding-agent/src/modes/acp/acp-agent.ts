@@ -2244,17 +2244,41 @@ export class AcpAgent implements Agent {
 			await this.#flushMissedFinalAssistantText(record, event);
 			await this.#flushUnreportedTurnError(record, event);
 			await this.#emitEndOfTurnUpdates(record);
-			await this.#waitForAcpPromptIdle(record, promptTurn);
-			// A follow-up turn's `agent_end` handler can settle the prompt first; this
-			// handler must not then reset or settle the next prompt's state.
-			if (promptTurn.settled) return;
-			record.liveMessageId = undefined;
-			record.liveMessageProgress = undefined;
-			this.#finishPrompt(record, {
-				stopReason: this.#resolveStopReason(event, promptTurn.cancelRequested),
-				usage: this.#buildTurnUsage(promptTurn.usageBaseline, record.session.sessionManager.getUsageStatistics()),
+			// Waiting for idle can deliver async-job follow-ups whose events queue
+			// behind this handler on `promptEventChain`. Awaiting that wait here
+			// would settle the turn before they run and drop their updates, so the
+			// wait and the settle leave the chain and settle once it has drained.
+			const finishing = this.#finishPromptAfterIdle(record, promptTurn, event).catch((error: unknown) => {
+				logger.warn("ACP prompt event handler failed", { error });
+			});
+			record.promptEventHandlers.add(finishing);
+			void finishing.finally(() => {
+				record.promptEventHandlers.delete(finishing);
 			});
 		}
+	}
+
+	async #finishPromptAfterIdle(
+		record: ManagedSessionRecord,
+		promptTurn: PromptTurnState,
+		event: Extract<AgentSessionEvent, { type: "agent_end" }>,
+	): Promise<void> {
+		await this.#waitForAcpPromptIdle(record, promptTurn);
+		// A follow-up turn's `agent_end` handler can settle the prompt first; this
+		// handler must not then reset or settle the next prompt's state.
+		if (promptTurn.settled) return;
+		let tail: Promise<void> | undefined;
+		do {
+			tail = record.promptEventChain;
+			await tail;
+		} while (tail !== record.promptEventChain);
+		if (promptTurn.settled) return;
+		record.liveMessageId = undefined;
+		record.liveMessageProgress = undefined;
+		this.#finishPrompt(record, {
+			stopReason: this.#resolveStopReason(event, promptTurn.cancelRequested),
+			usage: this.#buildTurnUsage(promptTurn.usageBaseline, record.session.sessionManager.getUsageStatistics()),
+		});
 	}
 
 	/**
