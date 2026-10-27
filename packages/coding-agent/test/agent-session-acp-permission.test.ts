@@ -412,14 +412,15 @@ it("ACP bash uses pattern decisions and scopes persistent grants to noncritical 
 	await expect(run("echo denied-write")).rejects.toThrow(/blocked by tool policy/);
 	expect(requests).toEqual([]);
 	await run("echo probe-1");
+	await run("echo probe-1");
 	await run("echo probe-2");
-	// "Always allow" covers later ordinary commands, as before.
-	expect(requests).toEqual(["echo probe-1"]);
+	// "Always allow" covers the same command again, not a different one.
+	expect(requests).toEqual(["echo probe-1", "echo probe-2"]);
 	await run("rm -rf /");
 	await run("rm -rf /");
 	// Critical commands ask on every call, whatever was granted.
-	expect(requests).toEqual(["echo probe-1", "rm -rf /", "rm -rf /"]);
-	expect(bashTool.executeCalls).toBe(5);
+	expect(requests).toEqual(["echo probe-1", "echo probe-2", "rm -rf /", "rm -rf /"]);
+	expect(bashTool.executeCalls).toBe(6);
 });
 
 it("always-ask: an ordinary edit without an ACP grant still faces the inner approval gate", async () => {
