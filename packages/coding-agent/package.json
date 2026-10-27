@@ -532,6 +532,7 @@
 		"gen:bundle": "bun scripts/bundle-dist.ts",
 		"gen:rpc": "bun scripts/gen-rpc/index.ts",
 		"prepack": "bun run gen:export-viewer && bun run gen:bundle",
+		"tandem:build": "bun ../../scripts/tandem-fetch-natives.ts",
 		"bench:guard": "bun scripts/bench-guard.ts"
 	},
 	"dependencies": {
