@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream/main` at `3befbc3f3a` (18.13.3 + 15 commits; no Rust or
-  natives changes past 18.13.3, so the published 18.13.3 addon matches).
+- Baseline: `upstream/main` at `31147f9d1a` (the 18.14.0 release commit, tag
+  `v18.14.0`), so the published 18.14.0 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -31,7 +31,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.13.3 none of the four PRs is merged and upstream has no equivalent
+As of 18.14.0 none of the four PRs is merged and upstream has no equivalent
 ACP changes.
 
 ## Retiring the fork
