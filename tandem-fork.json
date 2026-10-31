@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "upstreamPackage": "@oh-my-pi/pi-coding-agent",
+  "upstreamVersion": "18.14.1",
+  "upstreamRepo": "https://github.com/can1357/oh-my-pi",
+  "reason": "Carries open upstream ACP PRs: mid-turn usage_update, per-command permission grants, resumed MCP routes, subagent sessions",
+  "upstreamPrs": [
+    12716,
+    14472,
+    14797,
+    15043
+  ],
+  "packageDir": "packages/coding-agent",
+  "buildScript": "tandem:build"
+}
