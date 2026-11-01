@@ -84,15 +84,23 @@ const IDLE_STATE_BY_LIFECYCLE: Record<Exclude<SubagentLifecyclePayload["status"]
 export class AcpSubagentStreams {
 	readonly #connection: AgentSideConnection;
 	readonly #session: AgentSession;
+	/** The handle the client knows the root by; outlives a session replaced under it. */
+	readonly #protocolSessionId: string;
 	readonly #children = new Map<string, ChildStream>();
 	readonly #blobs = new BlobStore(getBlobsDir());
 	readonly #unsubscribers: Array<() => void>;
 	/** Held-back notifications until {@link start}; `undefined` once streaming. */
 	#pending: SessionNotification[] | undefined = [];
 
-	constructor(connection: AgentSideConnection, session: AgentSession, subagentEventBus: EventBus) {
+	constructor(
+		connection: AgentSideConnection,
+		session: AgentSession,
+		subagentEventBus: EventBus,
+		protocolSessionId = session.sessionId,
+	) {
 		this.#connection = connection;
 		this.#session = session;
+		this.#protocolSessionId = protocolSessionId;
 		this.#unsubscribers = [
 			subagentEventBus.on(TASK_SUBAGENT_LIFECYCLE_CHANNEL, data => {
 				this.#handleLifecycle(data as SubagentLifecyclePayload);
@@ -117,7 +125,7 @@ export class AcpSubagentStreams {
 	 */
 	readonly #routing = {
 		resolveAgentSessionId: (agentId: string): string | undefined =>
-			agentId === this.#session.getAgentId() ? this.#session.sessionId : this.#children.get(agentId)?.sessionId,
+			agentId === this.#session.getAgentId() ? this.#protocolSessionId : this.#children.get(agentId)?.sessionId,
 	};
 
 	/**
@@ -125,7 +133,7 @@ export class AcpSubagentStreams {
 	 * (e.g. a detached child writing to the root), in order with child traffic.
 	 */
 	reportRootIncoming(message: { customType?: unknown; details?: unknown }): void {
-		for (const notification of mapIncomingAgentMessage(message, this.#session.sessionId, this.#routing)) {
+		for (const notification of mapIncomingAgentMessage(message, this.#protocolSessionId, this.#routing)) {
 			this.#deliver(notification);
 		}
 	}
@@ -208,7 +216,7 @@ export class AcpSubagentStreams {
 		const parentAgentId = AgentRegistry.global().get(payload.id)?.parentId;
 		const parentSessionId =
 			parentAgentId === this.#session.getAgentId()
-				? this.#session.sessionId
+				? this.#protocolSessionId
 				: parentAgentId === undefined
 					? undefined
 					: this.#children.get(parentAgentId)?.sessionId;
@@ -216,7 +224,7 @@ export class AcpSubagentStreams {
 		const child: ChildStream = {
 			// omp agent ids are unique within one root session's tree, so prefixing the
 			// root id keeps child ids unique across the sessions sharing this connection.
-			sessionId: `${this.#session.sessionId}/${payload.id}`,
+			sessionId: `${this.#protocolSessionId}/${payload.id}`,
 			parentSessionId,
 			title: payload.id,
 			description: payload.description,
