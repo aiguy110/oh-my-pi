@@ -1993,7 +1993,12 @@ export class AcpAgent implements Agent {
 		// Registered before extensions start: a `session_start` handler can already replace the durable session.
 		session.registerSessionChangeCallback(() => this.#rememberHandleSession(record));
 		if (this.#clientCapabilities?.subagents != null && subagentEventBus) {
-			const subagents = new AcpSubagentStreams(this.#connection, session, subagentEventBus);
+			const subagents = new AcpSubagentStreams(
+				this.#connection,
+				session,
+				subagentEventBus,
+				record.protocolSessionId,
+			);
 			// Root IRC the prompt handler does not map (no live prompt turn, or one that
 			// is settled or being cancelled; e.g. a detached child writing to the root,
 			// even from a `session_start` spawn) shares the child stream, so it is held
