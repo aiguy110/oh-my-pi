@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `7efd772193` (the 18.14.2 release commit, tag
-  `v18.14.2`), so the published 18.14.2 natives addon matches the tree.
+- Baseline: `upstream` at `3fedf8d532` (the 18.15.0 release commit, tag
+  `v18.15.0`), so the published 18.15.0 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -34,10 +34,18 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.14.2 none of the four PRs is merged and upstream has no equivalent
+As of 18.15.0 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
+
+18.15.0 (#17384, `_omp/compaction/*` notifications) moved the lifetime event
+subscription back into session creation, gated by `lifetimeUpdatesReady`, and
+made `#handleLifetimeEvent` synchronous. On rebase, #14797's
+`resumePromptUnsubscribe` and #15043's `subagents.dispose()` were kept
+alongside upstream's new dispose steps; #15043's interim root-IRC branch in
+`#handleLifetimeEvent` is dropped by its own later commit, which routes root
+IRC through the subagent stream instead.
 
 ## Retiring the fork
 
