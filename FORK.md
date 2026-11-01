@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `c29f7c56f5` (the 18.14.1 release commit, tag
-  `v18.14.1`), so the published 18.14.1 natives addon matches the tree.
+- Baseline: `upstream` at `7efd772193` (the 18.14.2 release commit, tag
+  `v18.14.2`), so the published 18.14.2 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -24,6 +24,9 @@ Tandem-only commits (never upstream):
 - `fix(acp): settle the prompt after async follow-ups drain off the event chain`
   and `test(acp): expect per-command allow_always grants with pattern policies`
   — glue needed for the carried PRs to coexist.
+- `fix(acp): address subagent sessions by the advertised session handle` —
+  glue for #15043 on 18.14.2: upstream #17517 lets the durable session change
+  under an ACP handle, so subagent ids key on `protocolSessionId`.
 - `build(tandem): fetch the published pi-natives addon before packing` —
   `scripts/tandem-fetch-natives.ts`, run via `bun run tandem:build` in
   `packages/coding-agent`; downloads the prebuilt addon for the workspace
@@ -31,8 +34,10 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.14.1 none of the four PRs is merged and upstream has no equivalent
+As of 18.14.2 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
+18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
+carried PRs were adapted to address updates by `record.protocolSessionId`.
 
 ## Retiring the fork
 
