@@ -27,6 +27,9 @@ Tandem-only commits (never upstream):
 - `fix(acp): address subagent sessions by the advertised session handle` —
   glue for #15043 on 18.14.2: upstream #17517 lets the durable session change
   under an ACP handle, so subagent ids key on `protocolSessionId`.
+- `feat(acp): add a Yolo session mode that skips permission prompts` — a third
+  ACP session mode beside Default and Plan (`AgentSession.setAcpYolo`); not yet
+  proposed upstream.
 - `build(tandem): fetch the published pi-natives addon before packing` —
   `scripts/tandem-fetch-natives.ts`, run via `bun run tandem:build` in
   `packages/coding-agent`; downloads the prebuilt addon for the workspace

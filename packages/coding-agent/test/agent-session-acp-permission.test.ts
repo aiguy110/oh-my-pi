@@ -368,6 +368,46 @@ it("rejects intercepted bash command before invoking ACP requestPermission", asy
 	expect(permissionSpy).not.toHaveBeenCalled();
 });
 
+it("the ACP yolo session mode toggles the permission prompt for default-config sessions", async () => {
+	const bashTool = makeFakeTool("bash");
+	const bridge = makeBridge({ outcome: "selected", optionId: "allow_once", kind: "allow_once" });
+	const permissionSpy = spyOn(bridge, "requestPermission");
+	session = await createSession([bashTool], bridge);
+	await session.setActiveToolsByName(["bash"]);
+	const run = () =>
+		session!.agent.state.tools
+			.find(t => t.name === "bash")!
+			.execute("call", { command: "echo hi" }, undefined, undefined as never, undefined as never);
+
+	await run();
+	expect(permissionSpy).toHaveBeenCalledTimes(1);
+
+	session.setAcpYolo(true);
+	expect(session.isAcpYolo()).toBe(true);
+	await run();
+	expect(permissionSpy).toHaveBeenCalledTimes(1);
+
+	session.setAcpYolo(false);
+	expect(session.isAcpYolo()).toBe(false);
+	await run();
+	expect(permissionSpy).toHaveBeenCalledTimes(2);
+});
+
+it("leaving the ACP yolo mode re-enables prompts even when startup settings said yolo", async () => {
+	const bashTool = makeFakeTool("bash");
+	const bridge = makeBridge({ outcome: "selected", optionId: "allow_once", kind: "allow_once" });
+	const permissionSpy = spyOn(bridge, "requestPermission");
+	session = await createSession([bashTool], bridge, { "tools.approvalMode": "yolo" });
+	await session.setActiveToolsByName(["bash"]);
+	expect(session.isAcpYolo()).toBe(true);
+
+	session.setAcpYolo(false);
+	await session.agent.state.tools
+		.find(t => t.name === "bash")!
+		.execute("call", { command: "echo hi" }, undefined, undefined as never, undefined as never);
+	expect(permissionSpy).toHaveBeenCalledTimes(1);
+});
+
 /**
  * Minimal runner for wrapping a tool exactly as an ACP session does: no
  * interactive UI (so the inner tier gate fails closed) and no event handlers.
