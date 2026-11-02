@@ -838,6 +838,7 @@
 - Improved macOS computer-use behavior for applications without windows by opening the app and inspecting its returned window in one operation.
 ### Added
 
+- Added a "Yolo" session mode to `omp acp` that skips permission prompts for bash, edit, delete and move; switching back to Default restores them.
 - Added `usage_update` notifications after each assistant message and compaction for ACP hosts, so long prompts no longer leave clients meter-blind ([#12667](https://github.com/can1357/oh-my-pi/issues/12667), [#12716](https://github.com/can1357/oh-my-pi/pull/12716) by [@F0Rextasy](https://github.com/F0Rextasy)).
 - Added ACP subagent sessions for clients that advertise the unstable `subagents` capability: `omp acp` announces each subagent with `subagent_update` (running, then idle with its stop reason), streams its messages, thoughts and tool calls under its own session id, and reports its assignment and `agent://` messages as `session_message` updates ([#15043](https://github.com/can1357/oh-my-pi/pull/15043) by [@vnguyen42](https://github.com/vnguyen42))
 

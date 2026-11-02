@@ -8233,6 +8233,15 @@ export class AgentSession implements SettingsScope, AgentViewSession {
 		this.#tools.refreshAcpPermissionGates();
 	}
 
+	/** True when ACP permission prompts are suppressed for this session. */
+	isAcpYolo(): boolean {
+		return this.#tools.isAcpYolo();
+	}
+
+	setAcpYolo(enabled: boolean): void {
+		this.#tools.setAcpYolo(enabled);
+	}
+
 	#clearCheckpointRuntimeState(): void {
 		this.#checkpointState = undefined;
 		this.#pendingRewindReport = undefined;

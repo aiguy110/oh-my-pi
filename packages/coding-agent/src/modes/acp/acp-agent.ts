@@ -120,6 +120,7 @@ import { cfgPlanEnabled } from "../../plan-mode/settings";
 
 const ACP_DEFAULT_MODE_ID = "default";
 const ACP_PLAN_MODE_ID = "plan";
+const ACP_YOLO_MODE_ID = "yolo";
 const DEFAULT_PLAN_FILE_URL = "local://PLAN.md";
 const APPROVE_OPTION = "Approve and execute";
 const REFINE_OPTION = "Refine plan";
@@ -2610,12 +2611,17 @@ export class AcpAgent implements Agent {
 				description: "Read-only planning mode that drafts a plan to a markdown file before any code changes",
 			});
 		}
-		void session;
+		modes.push({
+			id: ACP_YOLO_MODE_ID,
+			name: "Yolo",
+			description: "Run bash, edit, delete and move without asking for permission",
+		});
 		return modes;
 	}
 
 	#getCurrentModeId(session: AgentSession): string {
-		return session.getPlanModeState()?.enabled ? ACP_PLAN_MODE_ID : ACP_DEFAULT_MODE_ID;
+		if (session.getPlanModeState()?.enabled) return ACP_PLAN_MODE_ID;
+		return session.isAcpYolo() ? ACP_YOLO_MODE_ID : ACP_DEFAULT_MODE_ID;
 	}
 
 	#applyModeChange(record: ManagedSessionRecord, modeId: string): void {
@@ -2624,6 +2630,8 @@ export class AcpAgent implements Agent {
 		if (!availableModes.some(mode => mode.id === modeId)) {
 			throw new Error(`Unsupported ACP mode: ${modeId}`);
 		}
+		// Plan mode is read-only, so it always prompts like Default; Yolo is its own mode.
+		session.setAcpYolo(modeId === ACP_YOLO_MODE_ID);
 		if (modeId === ACP_PLAN_MODE_ID) {
 			const previous = session.getPlanModeState();
 			session.setPlanModeState({

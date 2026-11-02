@@ -413,6 +413,8 @@ interface XdevMountNoticeProjection {
 export class SessionTools {
 	readonly #host: SessionToolsHost;
 	#autoApprove: boolean;
+	/** ACP session-mode override of the startup yolo intent; `undefined` follows startup flags/settings. */
+	#acpYoloOverride: boolean | undefined;
 	#toolRegistry: Map<string, AgentTool>;
 	#createVibeTools: (() => AgentTool[]) | undefined;
 	#createThinkTool: SessionToolsOptions["createThinkTool"];
@@ -1231,7 +1233,7 @@ export class SessionTools {
 					if (target.name === "bash") {
 						const explicitAutoApprove = this.#isExplicitAutoApproveMode();
 						const { approvalMode, userPolicies } = resolveApprovalFromContext({
-							autoApprove: this.#autoApprove,
+							autoApprove: this.#acpYoloOverride ?? this.#autoApprove,
 							settings: this.#host.settings,
 						});
 						const mode = approvalMode === "yolo" && !explicitAutoApprove ? "always-ask" : approvalMode;
@@ -1446,7 +1448,19 @@ export class SessionTools {
 		}) as T;
 	}
 
+	/** Whether ACP prompts are suppressed (startup --yolo/settings, or the ACP "yolo" session mode). */
+	isAcpYolo(): boolean {
+		return this.#isExplicitAutoApproveMode();
+	}
+
+	/** Switches the ACP "yolo" session mode on or off and re-wraps active tools to match. */
+	setAcpYolo(enabled: boolean): void {
+		this.#acpYoloOverride = enabled;
+		this.refreshAcpPermissionGates();
+	}
+
 	#isExplicitAutoApproveMode(): boolean {
+		if (this.#acpYoloOverride !== undefined) return this.#acpYoloOverride;
 		return (
 			this.#autoApprove ||
 			(cfgToolsApprovalMode.isConfigured(this.#host.settings) &&

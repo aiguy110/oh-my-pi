@@ -418,6 +418,16 @@ class FakeAgentSession {
 		this.planModeState = state;
 	}
 
+	acpYolo = false;
+
+	isAcpYolo(): boolean {
+		return this.acpYolo;
+	}
+
+	setAcpYolo(enabled: boolean): void {
+		this.acpYolo = enabled;
+	}
+
 	planProposalHandler: ((title: string) => Promise<unknown> | unknown) | undefined;
 
 	setPlanProposalHandler(handler: ((title: string) => Promise<unknown> | unknown) | null): void {
@@ -776,12 +786,12 @@ describe("ACP agent", () => {
 
 		const created = await harness.agent.newSession({ cwd: harness.cwdA, mcpServers: [] });
 		expectAcpStructure(zNewSessionResponse, created);
-		expect(created.modes?.availableModes.map(mode => mode.id)).toEqual(["default", "plan"]);
+		expect(created.modes?.availableModes.map(mode => mode.id)).toEqual(["default", "plan", "yolo"]);
 		const initialModeConfig = created.configOptions?.find(option => option.id === "mode") as
 			| { currentValue?: unknown; options?: Array<{ value: string }> }
 			| undefined;
 		expect(initialModeConfig?.currentValue).toBe("default");
-		expect(initialModeConfig?.options?.map(option => option.value)).toEqual(["default", "plan"]);
+		expect(initialModeConfig?.options?.map(option => option.value)).toEqual(["default", "plan", "yolo"]);
 
 		await harness.agent.setSessionMode({ sessionId: created.sessionId, modeId: "plan" });
 
@@ -822,6 +832,27 @@ describe("ACP agent", () => {
 		await harness.agent.setSessionMode({ sessionId: created.sessionId, modeId: "default" });
 		expect(session.planModeState).toBeUndefined();
 		expect(session.planProposalHandler).toBeUndefined();
+
+		harness.abortController.abort();
+		await Bun.sleep(0);
+	});
+
+	it("yolo mode suppresses permission prompts, reports itself as current, and leaves on switching back", async () => {
+		const harness = await createHarness();
+		const created = await harness.agent.newSession({ cwd: harness.cwdA, mcpServers: [] });
+		const session = harness.findSession(created.sessionId)!;
+		expect(session.isAcpYolo()).toBe(false);
+
+		await harness.agent.setSessionMode({ sessionId: created.sessionId, modeId: "yolo" });
+		expect(session.isAcpYolo()).toBe(true);
+		expect(
+			harness.updates.some(
+				n => n.update.sessionUpdate === "current_mode_update" && n.update.currentModeId === "yolo",
+			),
+		).toBe(true);
+
+		await harness.agent.setSessionMode({ sessionId: created.sessionId, modeId: "default" });
+		expect(session.isAcpYolo()).toBe(false);
 
 		harness.abortController.abort();
 		await Bun.sleep(0);
