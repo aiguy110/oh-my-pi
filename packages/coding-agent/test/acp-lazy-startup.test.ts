@@ -181,6 +181,9 @@ class LazyFakeSession {
 	getPlanModeState(): undefined {
 		return undefined;
 	}
+	isAcpYolo(): boolean {
+		return false;
+	}
 	setPlanModeState(): void {}
 	async sendCustomMessage(): Promise<void> {}
 	async sendUserMessage(): Promise<void> {}
