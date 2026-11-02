@@ -97,6 +97,9 @@ class ReplayTestSession {
 	getPlanModeState(): undefined {
 		return undefined;
 	}
+	isAcpYolo(): boolean {
+		return false;
+	}
 
 	setClientBridge(_bridge: unknown): void {}
 
