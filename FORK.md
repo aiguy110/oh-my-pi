@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `3fedf8d532` (the 18.15.0 release commit, tag
-  `v18.15.0`), so the published 18.15.0 natives addon matches the tree.
+- Baseline: `upstream` at `650f3a1082` (the 18.16.0 release commit, tag
+  `v18.16.0`), so the published 18.16.0 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -34,7 +34,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.15.0 none of the four PRs is merged and upstream has no equivalent
+As of 18.16.0 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -46,6 +46,17 @@ made `#handleLifetimeEvent` synchronous. On rebase, #14797's
 alongside upstream's new dispose steps; #15043's interim root-IRC branch in
 `#handleLifetimeEvent` is dropped by its own later commit, which routes root
 IRC through the subagent stream instead.
+
+18.16.0 rewrote the ACP runtime validators in `packages/utils/src/acp/schema.ts`
+from hand-written type guards to arktype (`@oh-my-pi/omptype`) schemas. On
+rebase, #15043's `subagent_update` / `session_message` checks were re-expressed
+as arms of upstream's `SessionUpdate` union (optional `title`, `description`,
+`state`, `senderSessionId`, `recipientSessionId`, typed `content`), plus a
+`SubagentWorkState` narrow for idle `stopReason`/`error` and a notification-level
+narrow rejecting a `subagent_update` that names its own parent session.
+
+18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
+the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
 
 ## Retiring the fork
 
