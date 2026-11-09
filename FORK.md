@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `cb4801a7d6` (the 18.18.2 release commit, tag
-  `v18.18.2`), so the published 18.18.2 natives addon matches the tree.
+- Baseline: `upstream` at `21f1188cf8` (the 18.18.3 release commit, tag
+  `v18.18.3`), so the published 18.18.3 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -37,7 +37,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.18.2 none of the four PRs is merged and upstream has no equivalent
+As of 18.18.3 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -82,6 +82,9 @@ expected a follow-up chunk while an earlier `sessionUpdate` was still held;
 #12716 delivers prompt updates in arrival order, so the glue commit
 `fix(acp): settle the prompt after async follow-ups drain off the event chain`
 moves that assertion after the held update is released.
+
+18.18.3 rebased cleanly with no conflicts; its changes (html form elicitation
+for `ask`, zsh/shell perf, todo phase defaults) do not overlap the carried PRs.
 
 18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
 the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
