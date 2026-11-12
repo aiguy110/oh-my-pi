@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `679691a781` (the 18.18.8 release commit, tag
-  `v18.18.8`), so the published 18.18.8 natives addon matches the tree.
+- Baseline: `upstream` at `50da2d3570` (the 18.18.9 release commit, tag
+  `v18.18.9`), so the published 18.18.9 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -37,7 +37,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.18.8 none of the four PRs is merged and upstream has no equivalent
+As of 18.18.9 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -99,6 +99,9 @@ auto-redeem settings, LiteLLM usage budgets, Windows shell fixes, catalog rows).
 18.18.8 rebased cleanly with no conflicts; it has no ACP changes (Claude
 usage-block healing, browser/natives fixes, a reverted publish tool, catalog
 rows).
+
+18.18.9 rebased cleanly with no conflicts; it has no ACP changes outside
+an `acp-builtins` test (OAuth account selection, catalog rows, misc fixes).
 
 18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
 the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
