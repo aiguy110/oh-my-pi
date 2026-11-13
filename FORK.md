@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `04cd1a7549` (the 18.19.0 release commit, tag
-  `v18.19.0`), so the published 18.19.0 natives addon matches the tree.
+- Baseline: `upstream` at `c308970263` (the 18.20.0 release commit, tag
+  `v18.20.0`), so the published 18.20.0 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -37,7 +37,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.19.0 none of the four PRs is merged and upstream has no equivalent
+As of 18.20.0 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -106,6 +106,10 @@ an `acp-builtins` test (OAuth account selection, catalog rows, misc fixes).
 18.19.0 rebased cleanly with no conflicts; its only ACP change drops the
 `blocked` todo status from the ACP plan mapper, and its task-tool rework
 (`task.steps`, removed `task.file`) does not overlap #15043's subagent sessions.
+
+18.20.0 rebased cleanly with no conflicts; its ACP changes (`ask` form "Other"
+box placement, surfacing client errors from a failed `ask` form) do not overlap
+the carried PRs.
 
 18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
 the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
