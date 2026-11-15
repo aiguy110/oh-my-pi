@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `c308970263` (the 18.20.0 release commit, tag
-  `v18.20.0`), so the published 18.20.0 natives addon matches the tree.
+- Baseline: `upstream` at `7c49c11aa5` (the 18.20.2 release commit, tag
+  `v18.20.2`), so the published 18.20.2 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -37,7 +37,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 18.20.0 none of the four PRs is merged and upstream has no equivalent
+As of 18.20.2 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -110,6 +110,17 @@ an `acp-builtins` test (OAuth account selection, catalog rows, misc fixes).
 18.20.0 rebased cleanly with no conflicts; its ACP changes (`ask` form "Other"
 box placement, surfacing client errors from a failed `ask` form) do not overlap
 the carried PRs.
+
+18.20.2 (18.20.1 had no ACP-relevant changes) conflicted twice in
+`acp-agent.ts`. Upstream fd497cbddd/1e20decfee now bill the end-of-turn
+`usage_update` with the session's subagent-tree cost (`#sessionTreeCost`);
+#12716's `#emitUsageUpdate` keeps upstream's helpers and uses that tree cost
+for its mid-prompt sends too. Upstream 623e1fac34 passes `promptTurn` to
+`#waitForAcpPromptIdle` and returns early once a follow-up turn's `agent_end`
+settled the prompt; the glue commit's `#finishPromptAfterIdle` now does the
+same, both after the idle wait and after the event chain drains. #15043's
+test import of `MAIN_AGENT_ID` was merged into upstream's new `AgentRegistry`
+import.
 
 18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
 the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
