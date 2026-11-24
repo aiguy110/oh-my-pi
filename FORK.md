@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `a7135b8f31` (the 19.1.0 release commit, tag
-  `v19.1.0`), so the published 19.1.0 natives addon matches the tree.
+- Baseline: `upstream` at `31ffee513f` (the 19.1.1 release commit, tag
+  `v19.1.1`), so the published 19.1.1 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -37,7 +37,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 19.1.0 none of the four PRs is merged and upstream has no equivalent
+As of 19.1.1 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -145,6 +145,14 @@ session's tool list and never hit the late-tools path. The test (folded into
 server URL path so discovery runs afresh; with the fork's
 `absorbHeldRoster` refresh disabled both cases still fail, so #14797 remains
 needed.
+
+19.1.1 (575 commits) rebased with no conflicts and no ACP-mode changes, but
+`McpServer` now types badly through an object spread of a union member, so
+#14797's regression test (folded into its commit) spells out the resumed
+HTTP server literal instead of spreading `servers[0]`. Its browser-relay
+(`browser-background-input`, `browser-relay-tab-isolation`) and
+`transcript-presenter` test failures reproduce on plain `v19.1.1` locally, so
+they are environmental, not fork-caused.
 
 18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
 the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
