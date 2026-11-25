@@ -4,8 +4,8 @@ Tandem installs `@oh-my-pi/pi-coding-agent` (ACP agent id `omp`) from this
 branch (`tandem` on https://github.com/aiguy110/oh-my-pi) to carry upstream ACP
 PRs that are not merged yet.
 
-- Baseline: `upstream` at `31ffee513f` (the 19.1.1 release commit, tag
-  `v19.1.1`), so the published 19.1.1 natives addon matches the tree.
+- Baseline: `upstream` at `5c5ecb16fa` (the 19.2.0 release commit, tag
+  `v19.2.0`), so the published 19.2.0 natives addon matches the tree.
 - Package name is unchanged (`@oh-my-pi/pi-coding-agent`); the entry point is
   `packages/coding-agent/src/cli.ts`.
 
@@ -37,7 +37,7 @@ Tandem-only commits (never upstream):
 
 ## Upstream coverage
 
-As of 19.1.1 none of the four PRs is merged and upstream has no equivalent
+As of 19.2.0 none of the four PRs is merged and upstream has no equivalent
 ACP changes (the existing end-of-prompt `usage_update` predates the fork).
 18.14.2's ACP session-handle change (#17517) is adjacent but unrelated; the
 carried PRs were adapted to address updates by `record.protocolSessionId`.
@@ -153,6 +153,19 @@ HTTP server literal instead of spreading `servers[0]`. Its browser-relay
 (`browser-background-input`, `browser-relay-tab-isolation`) and
 `transcript-presenter` test failures reproduce on plain `v19.1.1` locally, so
 they are environmental, not fork-caused.
+
+19.2.0 moved the TUI-facing modules that 19.x had relocated into `@oh-my-pi/pi-tui`
+back into coding-agent (`modes/view-model/*`, `session/transcript/*`,
+`tools/html-form/*`, `task/session-observer-registry`). The carried commits'
+imports were re-pointed at the new paths (#12716: `ContextUsage` from
+`modes/view-model/status-line/types`, in `acp-agent.ts` and its test; #15043:
+`EventBus` beside upstream's local `canonicalizeMessage`, and
+`unwrapHashlineHeaderPath` beside upstream's local `TodoStatus`). #15043 also
+returns `subagentEventBus` from upstream's reshaped ACP session factory in
+`main.ts` (now with scoped-model refresh), and the Yolo mode is pushed after
+upstream's new `--no-tools` Plan-mode gate. On 2026-11-25 upstream's stale bot
+closed #12716 and #14797 unmerged (branches kept); they would need reopening for
+the fork to retire.
 
 18.15.0 and later require Bun >= 1.4.4 at startup (`cli.ts`); run the tests and
 the ACP server with Tandem's Bun (`~/.tandem/bun/bun`), not an older system Bun.
